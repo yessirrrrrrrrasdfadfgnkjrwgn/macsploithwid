@@ -1,4 +1,4 @@
-t#!/usr/bin/env zsh
+#!/usr/bin/env zsh
 
 # --- Configuration ---
 # The remote URL containing the list of valid HWID keys (one per line).
@@ -31,9 +31,9 @@ fi
 echo "🔍 Checking key against remote list..."
 
 # 3. Fetch the content from the remote URL.
-# We use curl with error suppression and timeouts for robust execution.
-# The contents are stored in a variable.
-REMOTE_HWIDS=$(curl --silent --fail --max-time 10 "$HWID_URL")
+# The output is piped through 'tr -d "\r"' to remove potential Windows carriage returns,
+# ensuring a clean line-by-line match with the key later.
+REMOTE_HWIDS=$(curl --silent --fail --max-time 10 "$HWID_URL" | tr -d '\r')
 
 # Check if curl succeeded (exit code 0)
 if [[ $? -ne 0 ]]; then
@@ -42,10 +42,8 @@ if [[ $? -ne 0 ]]; then
 fi
 
 # 4. Check if the user's input key matches any line in the remote list.
-# We use 'grep -Fxq' to search:
-# -F: Fixed strings (don't treat input as regex)
-# -x: Match the whole line (ensures key is an exact match)
-# -q: Quiet (don't print matches, just set the exit status)
+# The 'grep -Fxq' command performs an exact, fixed-string search (-F) that matches the
+# key against the WHOLE line (-x) of the remote content.
 echo "$REMOTE_HWIDS" | grep -Fxq "$USER_INPUT_KEY"
 
 if [[ $? -eq 0 ]]; then
