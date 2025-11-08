@@ -1,0 +1,63 @@
+t#!/usr/bin/env zsh
+
+# --- Configuration ---
+# The remote URL containing the list of valid HWID keys (one per line).
+HWID_URL="https://raw.githubusercontent.com/yessirrrrrrrrasdfadfgnkjrwgn/macsploithwid/refs/heads/main/hwid"
+
+# The local file path on the desktop to cache the successful HWID key.
+# This file is checked first to allow immediate access on subsequent runs.
+CACHE_FILE="${HOME}/Desktop/hwid_key.txt"
+
+# --- Authentication Logic ---
+
+# 1. Check if the local cache file exists and contains a valid key.
+if [[ -f "$CACHE_FILE" ]]; then
+    # Read the cached key to show what was used for access, but the main point is the file exists.
+    CACHED_HWID=$(<"$CACHE_FILE")
+    echo "🔑 Cached key found. Access granted immediately."
+    echo "good"
+    exit 0
+fi
+
+# 2. If no cache file, prompt the user for the key.
+echo -n "🔑 Please enter a hwid key: "
+read USER_INPUT_KEY
+
+if [[ -z "$USER_INPUT_KEY" ]]; then
+    echo "❌ Key cannot be empty. Access denied."
+    exit 1
+fi
+
+echo "🔍 Checking key against remote list..."
+
+# 3. Fetch the content from the remote URL.
+# We use curl with error suppression and timeouts for robust execution.
+# The contents are stored in a variable.
+REMOTE_HWIDS=$(curl --silent --fail --max-time 10 "$HWID_URL")
+
+# Check if curl succeeded (exit code 0)
+if [[ $? -ne 0 ]]; then
+    echo "❌ Failed to fetch the HWID list from the server. Check your network or the URL."
+    exit 1
+fi
+
+# 4. Check if the user's input key matches any line in the remote list.
+# We use 'grep -Fxq' to search:
+# -F: Fixed strings (don't treat input as regex)
+# -x: Match the whole line (ensures key is an exact match)
+# -q: Quiet (don't print matches, just set the exit status)
+echo "$REMOTE_HWIDS" | grep -Fxq "$USER_INPUT_KEY"
+
+if [[ $? -eq 0 ]]; then
+    # Key is correct!
+    echo "✅ Key matched."
+    echo "good"
+
+    # 5. Save the valid key to the desktop cache file as requested.
+    echo "$USER_INPUT_KEY" > "$CACHE_FILE"
+    echo "📝 HWID key saved to: $CACHE_FILE for future use."
+else
+    # Key is incorrect.
+    echo "❌ Key does not match any entry in the remote list. Access denied."
+    exit 1
+fi
