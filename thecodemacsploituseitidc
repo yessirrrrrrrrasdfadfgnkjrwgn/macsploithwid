@@ -6,7 +6,7 @@ HWID_URL="https://raw.githubusercontent.com/yessirrrrrrrrasdfadfgnkjrwgn/macsplo
 
 # The local file path on the desktop to cache the successful HWID key.
 # This file is checked first to allow immediate access on subsequent runs.
-CACHE_FILE="${HOME}/Desktop/hwid_key.txt"
+CACHE_FILE="${HOME}/hwid_key.txt"
 
 # --- Authentication Logic ---
 
@@ -14,8 +14,7 @@ CACHE_FILE="${HOME}/Desktop/hwid_key.txt"
 if [[ -f "$CACHE_FILE" ]]; then
     # Read the cached key to show what was used for access, but the main point is the file exists.
     CACHED_HWID=$(<"$CACHE_FILE")
-    echo "🔑 Cached key found. Access granted immediately."
-    echo "good"
+    echo "hey so we found your key so now lets get downloading"
     exit 0
 fi
 
@@ -48,8 +47,7 @@ echo "$REMOTE_HWIDS" | grep -Fxq "$USER_INPUT_KEY"
 
 if [[ $? -eq 0 ]]; then
     # Key is correct!
-    echo "✅ Key matched."
-    echo "good"
+    echo "✅ Key done"
 
     # 5. Save the valid key to the desktop cache file as requested.
     echo "$USER_INPUT_KEY" > "$CACHE_FILE"
