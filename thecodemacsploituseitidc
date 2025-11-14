@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+#!/bin/bash
 
 # --- Configuration ---
 # The remote URL containing the list of valid HWID keys (one per line).
@@ -20,10 +20,9 @@ if [[ -f "$CACHE_FILE" ]]; then
 fi
 
 # 2. If no cache file, prompt the user for the key.
-echo -n "🔑 Please enter a hwid key: "
-# IMPORTANT FIX: Redirecting input from /dev/tty ensures 'read' takes input from the terminal
-# even when the script is run via a pipe (like curl | bash).
-read USER_INPUT_KEY < /dev/tty
+# FIX: Using 'read -r -p' to ensure the prompt is displayed, combined with
+# < /dev/tty to force the input to come from the terminal, even when piped.
+read -r -p "🔑 Please enter a hwid key: " USER_INPUT_KEY < /dev/tty
 
 if [[ -z "$USER_INPUT_KEY" ]]; then
     echo "❌ Key cannot be empty. Access denied."
