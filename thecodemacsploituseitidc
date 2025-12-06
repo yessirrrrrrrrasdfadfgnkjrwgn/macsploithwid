@@ -19,44 +19,62 @@ if [[ -f "$CACHE_FILE" ]]; then
     exit 0
 fi
 
-# 2. If no cache file, prompt the user for the key.
-# FIX: Using 'read -r -p' to ensure the prompt is displayed, combined with
-# < /dev/tty to force the input to come from the terminal, even when piped.
-read -r -p "🔑 Please enter a hwid key: " USER_INPUT_KEY < /dev/tty
+# 2. Start the main validation loop. This loop continues until a key is successfully
+# validated and cached, or the user chooses not to try again.
+while true; do
+    # Prompt the user for the key.
+    # We force input from the terminal /dev/tty to work correctly when piped (e.g., curl | bash).
+    read -r -p "🔑 Please enter a hwid key: " USER_INPUT_KEY < /dev/tty
 
-if [[ -z "$USER_INPUT_KEY" ]]; then
-    echo "❌ Key cannot be empty. Access denied."
-    exit 1
-fi
+    if [[ -z "$USER_INPUT_KEY" ]]; then
+        echo "❌ Key cannot be empty. Access denied."
+        # If the key is empty, immediately ask if they want to retry.
+    else
+        echo "🔍 Checking key against remote list..."
 
-echo "🔍 Checking key against remote list..."
+        # 3. Fetch the content from the remote URL.
+        # Pipe through 'tr -d "\r"' to remove Windows carriage returns for clean line matching.
+        REMOTE_HWIDS=$(curl --silent --fail --max-time 10 "$HWID_URL" | tr -d '\r')
+        CURL_STATUS=$?
 
-# 3. Fetch the content from the remote URL.
-# The output is piped through 'tr -d "\r"' to remove potential Windows carriage returns,
-# ensuring a clean line-by-line match with the key later.
-REMOTE_HWIDS=$(curl --silent --fail --max-time 10 "$HWID_URL" | tr -d '\r')
+        # Check if curl succeeded
+        if [[ $CURL_STATUS -ne 0 ]]; then
+            echo "❌ Failed to fetch the HWID list from the server. Check your network or the URL."
+            # Fall through to the retry prompt if network failure occurs
+        else
+            # 4. Check if the user's input key matches any line in the remote list.
+            echo "$REMOTE_HWIDS" | grep -Fxq "$USER_INPUT_KEY"
 
-# Check if curl succeeded (exit code 0)
-if [[ $? -ne 0 ]]; then
-    echo "❌ Failed to fetch the HWID list from the server. Check your network or the URL."
-    exit 1
-fi
+            if [[ $? -eq 0 ]]; then
+                # Key is correct! Exit successfully.
+                echo "✅ Key matched."
+                echo "good"
 
-# 4. Check if the user's input key matches any line in the remote list.
-# The 'grep -Fxq' command performs an exact, fixed-string search (-F) that matches the
-# key against the WHOLE line (-x) of the remote content.
-echo "$REMOTE_HWIDS" | grep -Fxq "$USER_INPUT_KEY"
+                # 5. Save the valid key to the desktop cache file as requested.
+                echo "$USER_INPUT_KEY" > "$CACHE_FILE"
+                echo "📝 HWID key saved to: $CACHE_FILE for future use."
+                exit 0
+            else
+                # Key is incorrect.
+                echo "❌ Key does not match any entry in the remote list. Access denied."
+                # Fall through to the retry prompt
+            fi
+        fi
+    fi
 
-if [[ $? -eq 0 ]]; then
-    # Key is correct!
-    echo "✅ Key matched."
-    echo "good"
+    # 6. Prompt the user to try again
+    while true; do
+        read -r -p "Do you wanna try again? (y/n): " RETRY_CHOICE < /dev/tty
+        RETRY_CHOICE=$(echo "$RETRY_CHOICE" | tr '[:upper:]' '[:lower:]')
 
-    # 5. Save the valid key to the desktop cache file as requested.
-    echo "$USER_INPUT_KEY" > "$CACHE_FILE"
-    echo "📝 HWID key saved to: $CACHE_FILE for future use."
-else
-    # Key is incorrect.
-    echo "❌ Key does not match any entry in the remote list. Access denied."
-    exit 1
-fi
+        if [[ "$RETRY_CHOICE" == "n" ]]; then
+            echo "Exiting."
+            exit 1
+        elif [[ "$RETRY_CHOICE" == "y" ]]; then
+            # Break the inner loop, which continues the main validation loop (while true)
+            break
+        else
+            echo "Invalid input. Please enter 'y' or 'n'."
+        fi
+    done
+done
